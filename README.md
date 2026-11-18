@@ -1,3 +1,4 @@
+Deployed Link :-   https://siem-log.netlify.app/
 # LogSentinel SIEM — Network & Security Log Analyzer
 
 An interactive, zero-backend Security Information & Event Management (SIEM) web application for ingesting, normalizing, detecting, and correlating security logs across **Linux Authentication**, **Windows Security Events**, **Web Servers (Nginx/Apache)**, and **Cloud Services (AWS CloudTrail)**.
