@@ -1,0 +1,8 @@
+{
+  "Records": [
+    { "eventTime": "2026-11-18T02:24:05Z", "eventSource": "signin.amazonaws.com", "eventName": "ConsoleLogin", "sourceIPAddress": "45.155.205.91", "userIdentity": { "userName": "deploy" }, "responseElements": { "ConsoleLogin": "Success" }, "additionalEventData": { "MFAUsed": "No" } },
+    { "eventTime": "2026-11-18T02:25:12Z", "eventSource": "iam.amazonaws.com", "eventName": "CreateAccessKey", "sourceIPAddress": "45.155.205.91", "userIdentity": { "userName": "deploy" }, "requestParameters": { "userName": "svc_backup" } },
+    { "eventTime": "2026-11-18T02:26:04Z", "eventSource": "iam.amazonaws.com", "eventName": "AttachUserPolicy", "sourceIPAddress": "45.155.205.91", "userIdentity": { "userName": "deploy" }, "requestParameters": { "userName": "svc_backup", "policyArn": "arn:aws:iam::aws:policy/AdministratorAccess" } },
+    { "eventTime": "2026-11-18T02:27:30Z", "eventSource": "s3.amazonaws.com", "eventName": "PutBucketPolicy", "sourceIPAddress": "45.155.205.91", "userIdentity": { "userName": "deploy" }, "requestParameters": { "bucketName": "prod-customer-exports", "policy": "Effect:Allow Principal:*" } }
+  ]
+}

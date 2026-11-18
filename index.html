@@ -1,0 +1,1631 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LogSentinel SIEM — Network & Security Log Analyzer</title>
+  <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            slatebg: '#0B1120',
+            cardbg: '#111827',
+            panelbg: '#1E293B',
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    body { font-family: 'Inter', system-ui, sans-serif; background-color: #0B1120; color: #E2E8F0; }
+    .mono { font-family: 'JetBrains Mono', monospace; }
+    ::-webkit-scrollbar { width: 8px; height: 8px; }
+    ::-webkit-scrollbar-track { background: #0B1120; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+    .tab-active { background-color: #1E293B; color: #38BDF8; border-color: #38BDF8; }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col antialiased selection:bg-sky-500/30 selection:text-sky-200">
+
+  <!-- Top Navigation Bar -->
+  <header class="sticky top-0 z-30 border-b border-slate-800 bg-slate-950/90 backdrop-blur-md">
+    <div class="max-w-[1440px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+      <div class="flex items-center gap-3 min-w-0">
+        <div class="w-9 h-9 rounded-lg bg-sky-500/15 border border-sky-500/40 flex items-center justify-center shrink-0">
+          <svg class="w-5 h-5 text-sky-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z"/>
+          </svg>
+        </div>
+        <div class="truncate">
+          <div class="flex items-center gap-2">
+            <h1 class="text-base sm:text-lg font-bold tracking-tight text-white truncate">LogSentinel SIEM</h1>
+            <span class="hidden sm:inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">Live Engine</span>
+          </div>
+          <p class="text-xs text-slate-400 hidden md:block">Multi-Source Log Normalization, Threat Detection & Incident Correlation</p>
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2 shrink-0">
+        <button id="btn-load-sample" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-sky-600 hover:bg-sky-500 text-white transition flex items-center gap-1.5 shadow-sm shadow-sky-900/40">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"/></svg
+        </button>
+        <button id="btn-export-report" class="px-3 py-1.5 rounded-lg text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 transition flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
+          <span class="hidden sm:inline">Export Report</span>
+        </button>
+        <button id="btn-clear-all" class="px-2.5 py-1.5 rounded-lg text-xs font-medium bg-slate-900 hover:bg-rose-950/60 text-slate-400 hover:text-rose-300 border border-slate-800 hover:border-rose-800/60 transition" title="Clear all ingested logs">
+          Clear
+        </button>
+      </div>
+    </div>
+
+    <!-- Sub-Navigation Tabs -->
+    <div class="max-w-[1440px] mx-auto px-4 sm:px-6 border-t border-slate-800/80 flex items-center gap-1 overflow-x-auto py-2">
+      <button data-tab="overview" class="nav-tab px-3 py-1.5 rounded-md text-xs font-medium border border-transparent text-slate-300 hover:text-white hover:bg-slate-800/60 transition whitespace-nowrap flex items-center gap-1.5 tab-active">
+        <span>Overview & Analytics</span>
+      </button>
+      <button data-tab="events" class="nav-tab px-3 py-1.5 rounded-md text-xs font-medium border border-transparent text-slate-300 hover:text-white hover:bg-slate-800/60 transition whitespace-nowrap flex items-center gap-1.5">
+        <span>Normalized Events</span>
+        <span id="badge-events" class="px-1.5 py-0.2 rounded-full text-[10px] bg-slate-800 text-slate-300 mono">0</span>
+      </button>
+      <button data-tab="alerts" class="nav-tab px-3 py-1.5 rounded-md text-xs font-medium border border-transparent text-slate-300 hover:text-white hover:bg-slate-800/60 transition whitespace-nowrap flex items-center gap-1.5">
+        <span>Threat Detections</span>
+        <span id="badge-alerts" class="px-1.5 py-0.2 rounded-full text-[10px] bg-rose-500/20 text-rose-300 mono">0</span>
+      </button>
+      <button data-tab="incidents" class="nav-tab px-3 py-1.5 rounded-md text-xs font-medium border border-transparent text-slate-300 hover:text-white hover:bg-slate-800/60 transition whitespace-nowrap flex items-center gap-1.5">
+        <span>Correlated Incidents</span>
+        <span id="badge-incidents" class="px-1.5 py-0.2 rounded-full text-[10px] bg-amber-500/20 text-amber-300 mono">0</span>
+      </button>
+      <button data-tab="ingest" class="nav-tab px-3 py-1.5 rounded-md text-xs font-medium border border-transparent text-slate-300 hover:text-white hover:bg-slate-800/60 transition whitespace-nowrap flex items-center gap-1.5">
+        <span>+ Ingest Logs</span>
+        <style>
+  .nav-tab[data-tab="ingest"] {
+    background-color: #2563eb;
+    color: #fff;
+    border-color: #60a5fa;
+    box-shadow: 0 0 12px rgba(37, 99, 235, 0.6);
+  }
+</style>
+        
+      </button>
+    </div>
+  </header>
+
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed bottom-5 right-5 z-50 hidden max-w-sm bg-slate-900 border border-slate-700 text-slate-100 px-4 py-3 rounded-xl shadow-2xl text-xs flex items-center gap-3">
+    <span id="toast-icon" class="w-2.5 h-2.5 rounded-full bg-emerald-400 shrink-0"></span>
+    <span id="toast-msg" class="leading-relaxed"></span>
+  </div>
+
+  <!-- Main Content -->
+  <main class="flex-1 max-w-[1440px] w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
+
+    <!-- TAB 1: OVERVIEW & ANALYTICS -->
+    <section id="view-overview" class="space-y-6">
+      <!-- KPI Row -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4">
+          <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+            <span>Normalized Events</span>
+            <span class="text-sky-400 mono">ALL SOURCES</span>
+          </div>
+          <div id="kpi-events" class="text-2xl font-bold text-white mono">0</div>
+          <div id="kpi-events-sub" class="text-xs text-slate-400 mt-1">Linux, Windows, Web & Cloud</div>
+        </div>
+
+        <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4">
+          <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+            <span>Security Alerts</span>
+            <span class="text-rose-400 mono">DETECTIONS</span>
+          </div>
+          <div id="kpi-alerts" class="text-2xl font-bold text-white mono">0</div>
+          <div id="kpi-alerts-sub" class="text-xs text-slate-400 mt-1">0 Critical · 0 High</div>
+        </div>
+
+        <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4">
+          <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+            <span>Correlated Incidents</span>
+            <span class="text-amber-400 mono">TIMELINES</span>
+          </div>
+          <div id="kpi-incidents" class="text-2xl font-bold text-white mono">0</div>
+          <div id="kpi-incidents-sub" class="text-xs text-slate-400 mt-1">Multi-stage attack chains</div>
+        </div>
+
+        <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4">
+          <div class="flex items-center justify-between text-xs text-slate-400 mb-1">
+            <span>Flagged IPs & Actors</span>
+            <span class="text-emerald-400 mono">ENTITIES</span>
+          </div>
+          <div id="kpi-entities" class="text-2xl font-bold text-white mono">0</div>
+          <div id="kpi-entities-sub" class="text-xs text-slate-400 mt-1">Unique suspicious sources</div>
+        </div>
+      </div>
+
+      <!-- Charts Row -->
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div class="lg:col-span-2 bg-slate-900/80 border border-slate-800 rounded-xl p-4">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h2 class="text-sm font-semibold text-white">Event & Threat Activity Timeline</h2>
+              <p class="text-xs text-slate-400">Normalized event volume vs. suspicious events over time</p>
+            </div>
+          </div>
+          <div class="relative h-72">
+            <canvas id="chart-timeline"></canvas>
+          </div>
+        </div>
+
+        <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4">
+          <div class="mb-3">
+            <h2 class="text-sm font-semibold text-white">Log Source Distribution</h2>
+            <p class="text-xs text-slate-400">Events normalized by platform</p>
+          </div>
+          <div class="relative h-72">
+            <canvas id="chart-sources"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bottom Row: Severity Breakdown + Top Suspicious Entities -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4">
+          <div class="mb-3">
+            <h2 class="text-sm font-semibold text-white">Detections by Rule Category</h2>
+            <p class="text-xs text-slate-400">Brute-force, unusual logins, privilege changes, suspicious access</p>
+          </div>
+          <div class="relative h-64">
+            <canvas id="chart-categories"></canvas>
+          </div>
+        </div>
+
+        <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 flex flex-col">
+          <div class="flex items-center justify-between mb-3">
+            <div>
+              <h2 class="text-sm font-semibold text-white">Top Suspicious Source IPs & Actors</h2>
+              <p class="text-xs text-slate-400">Click any entity to pivot directly into Normalized Events</p>
+            </div>
+          </div>
+          <div class="overflow-x-auto flex-1">
+            <table class="w-full text-left text-xs">
+              <thead class="text-slate-400 border-b border-slate-800">
+                <tr>
+                  <th class="py-2 pr-3 font-medium">Entity (IP / Actor)</th>
+                  <th class="py-2 px-2 font-medium">Sources</th>
+                  <th class="py-2 px-2 font-medium text-right">Events</th>
+                  <th class="py-2 pl-2 font-medium text-right">Max Severity</th>
+                </tr>
+              </thead>
+              <tbody id="top-entities-body" class="divide-y divide-slate-800/70"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 2: NORMALIZED EVENTS -->
+    <section id="view-events" class="hidden space-y-4">
+      <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 space-y-3">
+        <div class="flex flex-col md:flex-row gap-3">
+          <div class="flex-1 relative">
+            <svg class="w-4 h-4 text-slate-400 absolute left-3 top-2.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/></svg>
+            <input id="filter-search" type="text" placeholder="Search IP, actor, event code, resource, message, or raw log..." class="w-full pl-9 pr-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-xs text-slate-100 placeholder-slate-500 focus:outline-none focus:border-sky-500" />
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <select id="filter-source" class="px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-xs text-slate-200 focus:outline-none focus:border-sky-500">
+              <option value="all">All Sources</option>
+              <option value="linux_auth">Linux Auth</option>
+              <option value="windows_event">Windows Event</option>
+              <option value="web_server">Web Server</option>
+              <option value="cloud_service">Cloud Service</option>
+            </select>
+            <select id="filter-action" class="px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-xs text-slate-200 focus:outline-none focus:border-sky-500">
+              <option value="all">All Actions</option>
+              <option value="auth_failure">Auth Failure</option>
+              <option value="auth_success">Auth Success</option>
+              <option value="privilege_change">Privilege Change</option>
+              <option value="account_created">Account Created</option>
+              <option value="web_request">Web Request</option>
+              <option value="api_call">Cloud API Call</option>
+              <option value="policy_change">Policy Change</option>
+              <option value="process_exec">Process Execution</option>
+            </select>
+            <select id="filter-severity" class="px-3 py-2 rounded-lg bg-slate-950 border border-slate-700 text-xs text-slate-200 focus:outline-none focus:border-sky-500">
+              <option value="all">All Severities</option>
+              <option value="critical">Critical</option>
+              <option value="high">High</option>
+              <option value="medium">Medium</option>
+              <option value="low">Low</option>
+              <option value="info">Info</option>
+            </select>
+            <button id="btn-reset-filters" class="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-300 transition">Reset</button>
+          </div>
+        </div>
+        <div class="flex items-center justify-between text-xs text-slate-400">
+          <span id="events-count-label">Showing 0 events</span>
+          <span>Click any row to inspect full normalized schema & raw log</span>
+        </div>
+      </div>
+
+      <div class="bg-slate-900/80 border border-slate-800 rounded-xl overflow-hidden">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-950/70 text-slate-400 border-b border-slate-800">
+              <tr>
+                <th class="py-2.5 px-3 font-medium">Timestamp</th>
+                <th class="py-2.5 px-3 font-medium">Source</th>
+                <th class="py-2.5 px-3 font-medium">Severity</th>
+                <th class="py-2.5 px-3 font-medium">Action / Code</th>
+                <th class="py-2.5 px-3 font-medium">Actor</th>
+                <th class="py-2.5 px-3 font-medium">Source IP</th>
+                <th class="py-2.5 px-3 font-medium">Normalized Message</th>
+              </tr>
+            </thead>
+            <tbody id="events-table-body" class="divide-y divide-slate-800/70"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 3: THREAT DETECTIONS & ALERTS -->
+    <section id="view-alerts" class="hidden space-y-4">
+      <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 flex flex-wrap items-center justify-between gap-3">
+        <div class="flex flex-wrap items-center gap-2">
+          <select id="alert-filter-sev" class="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-slate-200">
+            <option value="all">All Severities</option>
+            <option value="critical">Critical</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+          <select id="alert-filter-cat" class="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-slate-200">
+            <option value="all">All Detection Categories</option>
+            <option value="Brute Force">Brute-Force Attempts</option>
+            <option value="Unusual Login">Unusual Logins</option>
+            <option value="Privilege Change">Privilege Changes</option>
+            <option value="Suspicious Access">Suspicious Access Patterns</option>
+          </select>
+          <select id="alert-filter-status" class="px-3 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-slate-200">
+            <option value="all">All Statuses</option>
+            <option value="Open">Open</option>
+            <option value="Investigating">Investigating</option>
+            <option value="Resolved">Resolved</option>
+            <option value="False Positive">False Positive</option>
+          </select>
+        </div>
+        <span id="alerts-count-label" class="text-xs text-slate-400">0 alerts</span>
+      </div>
+
+      <div id="alerts-list" class="space-y-3"></div>
+    </section>
+
+    <!-- TAB 4: CORRELATED INCIDENTS -->
+    <section id="view-incidents" class="hidden">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 space-y-3">
+          <div>
+            <h2 class="text-sm font-semibold text-white">Incident Groups</h2>
+            <p class="text-xs text-slate-400">Correlated by shared IP, actor & attack window</p>
+          </div>
+          <div id="incidents-list" class="space-y-2.5"></div>
+        </div>
+
+        <div class="lg:col-span-2 bg-slate-900/80 border border-slate-800 rounded-xl p-5" id="incident-detail-panel">
+          <div class="text-center py-16 text-slate-500 text-sm">Select an incident group on the left to inspect its correlated timeline and evidence.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TAB 5: INGEST LOGS -->
+    <section id="view-ingest" class="hidden space-y-6">
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- File Upload Dropzone -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-5 space-y-4">
+          <div>
+            <h2 class="text-sm font-semibold text-white">Upload Log Files</h2>
+            <p class="text-xs text-slate-400 mt-0.5">Supports Linux <span class="mono text-slate-300">auth.log</span>, Windows Security <span class="mono text-slate-300">.json/.csv</span>, Nginx/Apache <span class="mono text-slate-300">access.log</span>, and AWS CloudTrail <span class="mono text-slate-300">.json</span></p>
+          </div>
+
+          <div id="dropzone" class="border-2 border-dashed border-slate-700 hover:border-sky-500/70 rounded-xl p-8 text-center cursor-pointer transition bg-slate-950/50">
+            <svg class="w-10 h-10 text-slate-500 mx-auto mb-3" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z"/></svg>
+            <p class="text-sm font-medium text-slate-200">Drag & drop log files here, or click to browse</p>
+            <p class="text-xs text-slate-500 mt-1">Multiple files supported (.log, .txt, .json, .csv, .jsonl)</p>
+            <input id="file-input" type="file" multiple accept=".log,.txt,.json,.csv,.jsonl" class="hidden" />
+          </div>
+
+          <div>
+            <h3 class="text-xs font-semibold text-slate-300 uppercase tracking-wider mb-2.5">Quick-Load Individual Sample Logs</h3>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <button data-sample="linux" class="sample-btn p-3 rounded-lg bg-slate-950 border border-slate-800 hover:border-sky-500/50 text-left transition">
+                <div class="text-xs font-semibold text-sky-400">Linux Auth (auth.log)</div>
+                <div class="text-[11px] text-slate-400 mt-0.5">SSH brute-force, valid login & sudo root</div>
+              </button>
+              <button data-sample="windows" class="sample-btn p-3 rounded-lg bg-slate-950 border border-slate-800 hover:border-sky-500/50 text-left transition">
+                <div class="text-xs font-semibold text-indigo-400">Windows Events (JSON)</div>
+                <div class="text-[11px] text-slate-400 mt-0.5">4625/4624 logons, 4720/4732 admin add</div>
+              </button>
+              <button data-sample="web" class="sample-btn p-3 rounded-lg bg-slate-950 border border-slate-800 hover:border-sky-500/50 text-left transition">
+                <div class="text-xs font-semibold text-emerald-400">Web Server (Nginx)</div>
+                <div class="text-[11px] text-slate-400 mt-0.5">Dir scans, SQLi, LFI & 401 bursts</div>
+              </button>
+              <button data-sample="cloud" class="sample-btn p-3 rounded-lg bg-slate-950 border border-slate-800 hover:border-sky-500/50 text-left transition">
+                <div class="text-xs font-semibold text-amber-400">Cloud (AWS CloudTrail)</div>
+                <div class="text-[11px] text-slate-400 mt-0.5">No-MFA login, IAM key & S3 exposure</div>
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Paste Raw Logs -->
+        <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-5 flex flex-col space-y-3">
+          <div class="flex items-center justify-between gap-2">
+            <div>
+              <h2 class="text-sm font-semibold text-white">Paste Raw Logs</h2>
+              <p class="text-xs text-slate-400">Test custom log lines directly</p>
+            </div>
+            <select id="paste-source-type" class="px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-slate-200">
+              <option value="auto">Auto-Detect Format</option>
+              <option value="linux_auth">Linux Auth (syslog)</option>
+              <option value="windows_event">Windows Events (JSON/CSV)</option>
+              <option value="web_server">Web Server (Combined)</option>
+              <option value="cloud_service">CloudTrail (JSON)</option>
+            </select>
+          </div>
+          <textarea id="paste-textarea" rows="11" placeholder="Paste syslog, Windows Event JSON/CSV, Nginx/Apache access logs, or CloudTrail JSON here..." class="w-full flex-1 p-3 rounded-lg bg-slate-950 border border-slate-800 text-xs mono text-slate-200 placeholder-slate-600 focus:outline-none focus:border-sky-500"></textarea>
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] text-slate-500">Parsed & normalized locally in your browser</span>
+            <button id="btn-ingest-paste" class="px-4 py-2 rounded-lg bg-sky-600 hover:bg-sky-500 text-white text-xs font-medium transition">Parse & Analyze Logs</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Slide-over Event Investigation Drawer -->
+  <div id="event-drawer-backdrop" class="fixed inset-0 z-40 bg-black/60 backdrop-blur-xs hidden"></div>
+  <aside id="event-drawer" class="fixed top-0 right-0 z-50 h-full w-full max-w-xl bg-slate-950 border-l border-slate-800 shadow-2xl transform translate-x-full transition-transform duration-200 flex flex-col">
+    <div class="px-5 py-4 border-b border-slate-800 flex items-center justify-between">
+      <div>
+        <div class="flex items-center gap-2">
+          <span id="drawer-event-id" class="text-xs mono text-sky-400 font-semibold">EVT-0000</span>
+          <span id="drawer-severity-badge" class="px-2 py-0.5 rounded text-[10px] font-semibold uppercase">INFO</span>
+        </div>
+        <h3 class="text-sm font-semibold text-white mt-0.5">Normalized Event Investigation</h3>
+      </div>
+      <button id="btn-close-drawer" class="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>
+    <div id="drawer-content" class="flex-1 overflow-y-auto p-5 space-y-5 text-xs"></div>
+  </aside>
+
+  <script>
+    // =========================================================================
+    // 1. STATE & CHART INSTANCES
+    // =========================================================================
+    const state = {
+      events: [],
+      alerts: [],
+      incidents: [],
+      selectedIncidentId: null,
+      activeTab: 'overview',
+      charts: { timeline: null, sources: null, categories: null },
+      filters: { search: '', source: 'all', action: 'all', severity: 'all' },
+      alertFilters: { severity: 'all', category: 'all', status: 'all' },
+      alertStatuses: {},
+      incidentNotes: {},
+    };
+
+    const SEV_RANK = { critical: 4, high: 3, medium: 2, low: 1, info: 0 };
+    const SEV_BADGE = {
+      critical: 'bg-rose-500/20 text-rose-300 border border-rose-500/40',
+      high: 'bg-orange-500/20 text-orange-300 border border-orange-500/40',
+      medium: 'bg-amber-500/20 text-amber-300 border border-amber-500/40',
+      low: 'bg-sky-500/20 text-sky-300 border border-sky-500/40',
+      info: 'bg-slate-700/40 text-slate-300 border border-slate-600/40',
+    };
+    const SOURCE_LABEL = {
+      linux_auth: 'Linux Auth',
+      windows_event: 'Windows Event',
+      web_server: 'Web Server',
+      cloud_service: 'Cloud Service',
+    };
+    const SOURCE_BADGE = {
+      linux_auth: 'bg-sky-500/15 text-sky-300 border border-sky-500/30',
+      windows_event: 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/30',
+      web_server: 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30',
+      cloud_service: 'bg-amber-500/15 text-amber-300 border border-amber-500/30',
+    };
+
+    // =========================================================================
+    // 2. SAMPLE LOG DATASETS (Correlated Multi-Source Attack + Normal Traffic)
+    // =========================================================================
+    const SAMPLES = {
+      linux: `Nov 18 02:11:04 prod-bastion-01 sshd[14012]: Invalid user admin from 185.220.101.45 port 51204 ssh2
+Nov 18 02:11:09 prod-bastion-01 sshd[14015]: Failed password for invalid user admin from 185.220.101.45 port 51208 ssh2
+Nov 18 02:11:14 prod-bastion-01 sshd[14019]: Failed password for root from 185.220.101.45 port 51214 ssh2
+Nov 18 02:11:19 prod-bastion-01 sshd[14023]: Failed password for root from 185.220.101.45 port 51220 ssh2
+Nov 18 02:11:25 prod-bastion-01 sshd[14029]: Failed password for deploy from 185.220.101.45 port 51228 ssh2
+Nov 18 02:11:31 prod-bastion-01 sshd[14034]: Failed password for deploy from 185.220.101.45 port 51235 ssh2
+Nov 18 02:12:02 prod-bastion-01 sshd[14051]: Accepted password for deploy from 185.220.101.45 port 51289 ssh2
+Nov 18 02:13:18 prod-bastion-01 sudo: deploy : TTY=pts/0 ; PWD=/home/deploy ; USER=root ; COMMAND=/bin/bash
+Nov 18 02:14:05 prod-bastion-01 useradd[14102]: new user: name=svc_backup, UID=1009, GID=1009, home=/home/svc_backup, shell=/bin/bash
+Nov 18 02:14:12 prod-bastion-01 usermod[14108]: add 'svc_backup' to group 'sudo'
+Nov 18 09:05:11 prod-bastion-01 sshd[15201]: Accepted publickey for alice from 10.0.2.14 port 60112 ssh2`,
+
+      windows: JSON.stringify([
+        { TimeCreated: "2026-11-18T02:18:10Z", Computer: "WIN-DC01.corp.local", EventID: 4625, TargetUserName: "administrator", IpAddress: "185.220.101.45", LogonType: 3, Status: "0xc000006d", Message: "An account failed to log on" },
+        { TimeCreated: "2026-11-18T02:18:15Z", Computer: "WIN-DC01.corp.local", EventID: 4625, TargetUserName: "administrator", IpAddress: "185.220.101.45", LogonType: 3, Status: "0xc000006d", Message: "An account failed to log on" },
+        { TimeCreated: "2026-11-18T02:18:21Z", Computer: "WIN-DC01.corp.local", EventID: 4625, TargetUserName: "svc_sql", IpAddress: "185.220.101.45", LogonType: 3, Status: "0xc000006d", Message: "An account failed to log on" },
+        { TimeCreated: "2026-11-18T02:18:27Z", Computer: "WIN-DC01.corp.local", EventID: 4625, TargetUserName: "svc_sql", IpAddress: "185.220.101.45", LogonType: 3, Status: "0xc000006d", Message: "An account failed to log on" },
+        { TimeCreated: "2026-11-18T02:18:33Z", Computer: "WIN-DC01.corp.local", EventID: 4625, TargetUserName: "deploy", IpAddress: "185.220.101.45", LogonType: 3, Status: "0xc000006d", Message: "An account failed to log on" },
+        { TimeCreated: "2026-11-18T02:19:02Z", Computer: "WIN-DC01.corp.local", EventID: 4624, TargetUserName: "deploy", IpAddress: "185.220.101.45", LogonType: 10, Message: "An account was successfully logged on (RDP)" },
+        { TimeCreated: "2026-11-18T02:19:15Z", Computer: "WIN-DC01.corp.local", EventID: 4672, TargetUserName: "deploy", IpAddress: "185.220.101.45", Message: "Special privileges assigned to new logon" },
+        { TimeCreated: "2026-11-18T02:20:04Z", Computer: "WIN-DC01.corp.local", EventID: 4720, TargetUserName: "backup_admin$", SubjectUserName: "deploy", IpAddress: "185.220.101.45", Message: "A user account was created" },
+        { TimeCreated: "2026-11-18T02:20:19Z", Computer: "WIN-DC01.corp.local", EventID: 4732, TargetUserName: "backup_admin$", GroupName: "Administrators", SubjectUserName: "deploy", IpAddress: "185.220.101.45", Message: "A member was added to a security-enabled local group" },
+        { TimeCreated: "2026-11-18T02:21:10Z", Computer: "WIN-DC01.corp.local", EventID: 4688, SubjectUserName: "deploy", NewProcessName: "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", CommandLine: "powershell.exe -nop -w hidden -enc SQBFAFgAIAAoAE4AZQB3AC0ATwBiAGoAZQBjAHQA", IpAddress: "185.220.101.45", Message: "A new process has been created" },
+        { TimeCreated: "2026-11-18T09:15:00Z", Computer: "WIN-WS04.corp.local", EventID: 4624, TargetUserName: "alice", IpAddress: "10.0.2.14", LogonType: 2, Message: "An account was successfully logged on" }
+      ], null, 2),
+
+      web: `185.220.101.45 - - [18/Nov/2026:02:08:11 +0000] "GET /.env HTTP/1.1" 404 153 "-" "sqlmap/1.7.2"
+185.220.101.45 - - [18/Nov/2026:02:08:14 +0000] "GET /wp-admin/install.php HTTP/1.1" 404 153 "-" "sqlmap/1.7.2"
+185.220.101.45 - - [18/Nov/2026:02:08:17 +0000] "GET /phpmyadmin/ HTTP/1.1" 403 198 "-" "sqlmap/1.7.2"
+185.220.101.45 - - [18/Nov/2026:02:08:21 +0000] "GET /api/users?id=1'%20OR%201=1-- HTTP/1.1" 500 512 "-" "sqlmap/1.7.2"
+185.220.101.45 - - [18/Nov/2026:02:08:25 +0000] "GET /../../../../etc/passwd HTTP/1.1" 400 166 "-" "sqlmap/1.7.2"
+185.220.101.45 - - [18/Nov/2026:02:08:30 +0000] "GET /admin/config.bak HTTP/1.1" 404 153 "-" "sqlmap/1.7.2"
+185.220.101.45 - - [18/Nov/2026:02:08:33 +0000] "GET /.git/config HTTP/1.1" 403 198 "-" "sqlmap/1.7.2"
+91.240.118.172 - - [18/Nov/2026:04:42:10 +0000] "POST /api/auth/login HTTP/1.1" 401 89 "-" "python-requests/2.31.0"
+91.240.118.172 - - [18/Nov/2026:04:42:12 +0000] "POST /api/auth/login HTTP/1.1" 401 89 "-" "python-requests/2.31.0"
+91.240.118.172 - - [18/Nov/2026:04:42:14 +0000] "POST /api/auth/login HTTP/1.1" 401 89 "-" "python-requests/2.31.0"
+91.240.118.172 - - [18/Nov/2026:04:42:16 +0000] "POST /api/auth/login HTTP/1.1" 401 89 "-" "python-requests/2.31.0"
+91.240.118.172 - - [18/Nov/2026:04:42:18 +0000] "POST /api/auth/login HTTP/1.1" 401 89 "-" "python-requests/2.31.0"
+10.0.2.14 - alice [18/Nov/2026:09:10:02 +0000] "GET /dashboard HTTP/1.1" 200 4820 "-" "Mozilla/5.0"
+10.0.2.25 - bob [18/Nov/2026:09:12:44 +0000] "GET /api/metrics HTTP/1.1" 200 1204 "-" "Mozilla/5.0"`,
+
+      cloud: JSON.stringify({
+        Records: [
+          { eventTime: "2026-11-18T02:24:05Z", eventSource: "signin.amazonaws.com", eventName: "ConsoleLogin", sourceIPAddress: "45.155.205.91", userIdentity: { userName: "deploy" }, responseElements: { ConsoleLogin: "Success" }, additionalEventData: { MFAUsed: "No" } },
+          { eventTime: "2026-11-18T02:25:12Z", eventSource: "iam.amazonaws.com", eventName: "CreateAccessKey", sourceIPAddress: "45.155.205.91", userIdentity: { userName: "deploy" }, requestParameters: { userName: "svc_backup" } },
+          { eventTime: "2026-11-18T02:26:04Z", eventSource: "iam.amazonaws.com", eventName: "AttachUserPolicy", sourceIPAddress: "45.155.205.91", userIdentity: { userName: "deploy" }, requestParameters: { userName: "svc_backup", policyArn: "arn:aws:iam::aws:policy/AdministratorAccess" } },
+          { eventTime: "2026-11-18T02:27:30Z", eventSource: "s3.amazonaws.com", eventName: "PutBucketPolicy", sourceIPAddress: "45.155.205.91", userIdentity: { userName: "deploy" }, requestParameters: { bucketName: "prod-customer-exports", policy: "Effect:Allow Principal:*" } },
+          { eventTime: "2026-11-18T02:28:18Z", eventSource: "ec2.amazonaws.com", eventName: "AuthorizeSecurityGroupIngress", sourceIPAddress: "45.155.205.91", userIdentity: { userName: "deploy" }, requestParameters: { groupId: "sg-0a91f3b2", cidrIp: "0.0.0.0/0", fromPort: 22, toPort: 22 } },
+          { eventTime: "2026-11-18T09:20:00Z", eventSource: "s3.amazonaws.com", eventName: "GetObject", sourceIPAddress: "10.0.2.14", userIdentity: { userName: "alice" }, requestParameters: { bucketName: "internal-artifacts" } }
+        ]
+      }, null, 2)
+    };
+
+    // =========================================================================
+    // 3. LOG NORMALIZATION ENGINE
+    // =========================================================================
+    let eventCounter = 1;
+    function nextEventId() {
+      return 'EVT-' + String(eventCounter++).padStart(4, '0');
+    }
+
+    function parseTimestamp(str) {
+      if (!str) return new Date();
+      const nginxMatch = String(str).match(/^(\d{2})\/([A-Za-z]{3})\/(\d{4}):(\d{2}:\d{2}:\d{2})\s*([+-]\d{4})?/);
+      if (nginxMatch) {
+        const d = new Date(`${nginxMatch[2]} ${nginxMatch[1]} ${nginxMatch[3]} ${nginxMatch[4]} GMT${nginxMatch[5] || '+0000'}`);
+        if (!isNaN(d)) return d;
+      }
+      const sysMatch = String(str).match(/^([A-Za-z]{3})\s+(\d{1,2})\s+(\d{2}:\d{2}:\d{2})$/);
+      if (sysMatch) {
+        const year = new Date().getFullYear();
+        const d = new Date(`${sysMatch[1]} ${sysMatch[2]} ${year} ${sysMatch[3]} UTC`);
+        if (!isNaN(d)) return d;
+      }
+      const d = new Date(str);
+      return isNaN(d) ? new Date() : d;
+    }
+
+    function detectFormat(text) {
+      const trimmed = text.trim();
+      if (!trimmed) return 'unknown';
+      if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+        if (trimmed.includes('Records') || trimmed.includes('eventSource') || trimmed.includes('eventName')) return 'cloud_service';
+        if (trimmed.includes('EventID') || trimmed.includes('TimeCreated') || trimmed.includes('TargetUserName')) return 'windows_event';
+      }
+      if (/^\d{1,3}(?:\.\d{1,3}){3}\s+\S+\s+\S+\s+\[/.test(trimmed)) return 'web_server';
+      if (/^[A-Za-z]{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2}\s+/.test(trimmed)) return 'linux_auth';
+      if (/EventID/i.test(trimmed.split('\n')[0])) return 'windows_event';
+      return 'linux_auth';
+    }
+
+    function normalizeLogs(rawText, forcedType = 'auto') {
+      const type = forcedType === 'auto' ? detectFormat(rawText) : forcedType;
+      const normalized = [];
+
+      if (type === 'linux_auth') {
+        const lines = rawText.split(/\r?\n/).filter(l => l.trim());
+        for (const line of lines) {
+          const m = line.match(/^([A-Za-z]{3}\s+\d{1,2}\s+\d{2}:\d{2}:\d{2})\s+(\S+)\s+([^\[:]+)(?:\[\d+\])?:\s+(.*)$/);
+          if (!m) continue;
+          const [, tsStr, host, proc, msg] = m;
+          const dt = parseTimestamp(tsStr);
+          let action = 'system_event', outcome = 'info', severity = 'info', actor = 'system', srcIp = '-', resource = proc;
+
+          const ipM = msg.match(/from\s+(\d{1,3}(?:\.\d{1,3}){3})/);
+          if (ipM) srcIp = ipM[1];
+
+          if (/Failed password|Invalid user|authentication failure/i.test(msg)) {
+            action = 'auth_failure'; outcome = 'failure'; severity = 'medium';
+            const uM = msg.match(/(?:invalid user|for)\s+(\S+)/i);
+            if (uM) actor = uM[1];
+          } else if (/Accepted (?:password|publickey)/i.test(msg)) {
+            action = 'auth_success'; outcome = 'success'; severity = 'low';
+            const uM = msg.match(/for\s+(\S+)/i);
+            if (uM) actor = uM[1];
+          } else if (/sudo:/i.test(proc) || /USER=root/i.test(msg)) {
+            action = 'privilege_change'; outcome = 'success'; severity = 'high';
+            const uM = msg.match(/^\s*(\S+)\s*:/);
+            if (uM) actor = uM[1];
+            const cmdM = msg.match(/COMMAND=(.+)$/);
+            if (cmdM) resource = cmdM[1].trim();
+          } else if (/useradd/i.test(proc)) {
+            action = 'account_created'; outcome = 'success'; severity = 'high';
+            const uM = msg.match(/name=([^,\s]+)/);
+            if (uM) actor = uM[1];
+          } else if (/usermod/i.test(proc)) {
+            action = 'privilege_change'; outcome = 'success'; severity = 'high';
+            const uM = msg.match(/add\s+'([^']+)'/);
+            if (uM) actor = uM[1];
+          }
+
+          normalized.push({
+            id: nextEventId(),
+            timestamp: dt.toISOString(),
+            epoch: dt.getTime(),
+            source_type: 'linux_auth',
+            source_name: host,
+            event_action: action,
+            outcome,
+            severity,
+            actor,
+            src_ip: srcIp,
+            dst_host: host,
+            resource,
+            event_code: proc.trim(),
+            message: msg.trim(),
+            raw: line
+          });
+        }
+      } else if (type === 'windows_event') {
+        let records = [];
+        const trimmed = rawText.trim();
+        if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+          try {
+            const parsed = JSON.parse(trimmed);
+            records = Array.isArray(parsed) ? parsed : (parsed.Events || parsed.Records || [parsed]);
+          } catch {
+            records = trimmed.split(/\r?\n/).filter(Boolean).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+          }
+        } else {
+          const lines = trimmed.split(/\r?\n/).filter(Boolean);
+          if (lines.length > 1) {
+            const headers = lines[0].split(',').map(h => h.trim().replace(/^"|"$/g, ''));
+            for (let i = 1; i < lines.length; i++) {
+              const vals = lines[i].split(',').map(v => v.trim().replace(/^"|"$/g, ''));
+              const obj = {};
+              headers.forEach((h, idx) => obj[h] = vals[idx] || '');
+              records.push(obj);
+            }
+          }
+        }
+
+        for (const r of records) {
+          const eid = Number(r.EventID || r.event_id || 0);
+          const dt = parseTimestamp(r.TimeCreated || r.Timestamp || r.timestamp);
+          const host = r.Computer || r.Host || 'WIN-HOST';
+          const actor = r.SubjectUserName || r.TargetUserName || r.User || 'SYSTEM';
+          const target = r.TargetUserName || '';
+          const srcIp = r.IpAddress || r.SourceIP || '-';
+          let action = 'system_event', outcome = 'success', severity = 'info', resource = target || host;
+          let msg = r.Message || `Windows Event ${eid}`;
+
+          if (eid === 4625) {
+            action = 'auth_failure'; outcome = 'failure'; severity = 'medium';
+            msg = `Failed Windows logon for ${target || actor} (LogonType ${r.LogonType || '?'})`;
+          } else if (eid === 4624) {
+            action = 'auth_success'; outcome = 'success'; severity = 'low';
+            msg = `Successful Windows logon for ${target || actor} (LogonType ${r.LogonType || '?'})`;
+          } else if (eid === 4672) {
+            action = 'privilege_change'; outcome = 'success'; severity = 'medium';
+            msg = `Special privileges assigned to ${target || actor}`;
+          } else if (eid === 4720) {
+            action = 'account_created'; outcome = 'success'; severity = 'high';
+            msg = `New Windows account '${target}' created by ${actor}`;
+          } else if (eid === 4732) {
+            action = 'privilege_change'; outcome = 'success'; severity = 'critical';
+            resource = r.GroupName || 'Administrators';
+            msg = `User '${target}' added to privileged group '${resource}' by ${actor}`;
+          } else if (eid === 4688) {
+            action = 'process_exec'; outcome = 'success'; severity = /-enc|hidden|bypass|mimikatz/i.test(r.CommandLine || '') ? 'high' : 'low';
+            resource = r.NewProcessName || r.CommandLine || 'process';
+            msg = `Process created by ${actor}: ${r.CommandLine || r.NewProcessName}`;
+          }
+
+          normalized.push({
+            id: nextEventId(),
+            timestamp: dt.toISOString(),
+            epoch: dt.getTime(),
+            source_type: 'windows_event',
+            source_name: host,
+            event_action: action,
+            outcome,
+            severity,
+            actor: r.SubjectUserName || r.TargetUserName || 'SYSTEM',
+            src_ip: srcIp,
+            dst_host: host,
+            resource,
+            event_code: String(eid),
+            message: msg,
+            raw: JSON.stringify(r)
+          });
+        }
+      } else if (type === 'web_server') {
+        const lines = rawText.split(/\r?\n/).filter(l => l.trim());
+        const re = /^(\S+)\s+\S+\s+(\S+)\s+\[([^\]]+)\]\s+"([A-Z]+)\s+(\S+)\s+[^"]+"\s+(\d{3})\s+(\d+|-)\s+"([^"]*)"\s+"([^"]*)"/;
+        for (const line of lines) {
+          const m = line.match(re);
+          if (!m) continue;
+          const [, ip, user, tsStr, method, path, statusStr, , , ua] = m;
+          const status = Number(statusStr);
+          const dt = parseTimestamp(tsStr);
+          let action = 'web_request';
+          let outcome = status >= 400 ? 'failure' : 'success';
+          let severity = 'info';
+
+          if (status === 401) { action = 'auth_failure'; severity = 'medium'; }
+          else if (status === 403 || status === 404) { severity = 'low'; }
+          else if (status >= 500) { severity = 'medium'; }
+
+          let decodedPath = path;
+          try { decodedPath = decodeURIComponent(path); } catch {}
+          if (/(\.\.\/|union\s+select|or\s+1=1|<script>|\/\.env|\/\.git|\/wp-admin|\/phpmyadmin|sqlmap|nikto)/i.test(decodedPath + ' ' + ua)) {
+            severity = 'high';
+          }
+
+          normalized.push({
+            id: nextEventId(),
+            timestamp: dt.toISOString(),
+            epoch: dt.getTime(),
+            source_type: 'web_server',
+            source_name: 'nginx-edge-01',
+            event_action: action,
+            outcome,
+            severity,
+            actor: user === '-' ? 'anonymous' : user,
+            src_ip: ip,
+            dst_host: 'web-prod-01',
+            resource: `${method} ${path}`,
+            event_code: String(status),
+            message: `${method} ${path} -> HTTP ${status} (${ua.slice(0, 40)})`,
+            raw: line
+          });
+        }
+      } else if (type === 'cloud_service') {
+        let records = [];
+        try {
+          const parsed = JSON.parse(rawText.trim());
+          records = Array.isArray(parsed) ? parsed : (parsed.Records || [parsed]);
+        } catch {
+          records = rawText.trim().split(/\r?\n/).filter(Boolean).map(l => { try { return JSON.parse(l); } catch { return null; } }).filter(Boolean);
+        }
+
+        for (const r of records) {
+          const dt = parseTimestamp(r.eventTime || r.timestamp);
+          const evName = r.eventName || 'ApiCall';
+          const evSrc = (r.eventSource || 'aws').replace('.amazonaws.com', '');
+          const actor = r.userIdentity?.userName || r.userIdentity?.arn || 'iam-user';
+          const srcIp = r.sourceIPAddress || '-';
+          let action = 'api_call', outcome = 'success', severity = 'info';
+          let resource = r.requestParameters?.bucketName || r.requestParameters?.userName || r.requestParameters?.groupId || evSrc;
+
+          if (evName === 'ConsoleLogin') {
+            const ok = r.responseElements?.ConsoleLogin === 'Success';
+            action = ok ? 'auth_success' : 'auth_failure';
+            outcome = ok ? 'success' : 'failure';
+            severity = r.additionalEventData?.MFAUsed === 'No' ? 'high' : 'low';
+          } else if (/CreateAccessKey|AttachUserPolicy|PutUserPolicy|AssumeRole/i.test(evName)) {
+            action = 'privilege_change';
+            severity = /AdministratorAccess/i.test(JSON.stringify(r.requestParameters || {})) ? 'critical' : 'high';
+          } else if (/PutBucketPolicy|AuthorizeSecurityGroupIngress/i.test(evName)) {
+            action = 'policy_change';
+            severity = /0\.0\.0\.0\/0|\*/.test(JSON.stringify(r.requestParameters || {})) ? 'critical' : 'medium';
+          }
+
+          normalized.push({
+            id: nextEventId(),
+            timestamp: dt.toISOString(),
+            epoch: dt.getTime(),
+            source_type: 'cloud_service',
+            source_name: `aws-${evSrc}`,
+            event_action: action,
+            outcome,
+            severity,
+            actor,
+            src_ip: srcIp,
+            dst_host: `aws:${evSrc}`,
+            resource: String(resource),
+            event_code: evName,
+            message: `CloudTrail ${evName} by ${actor} on ${resource}`,
+            raw: JSON.stringify(r)
+          });
+        }
+      }
+
+      return normalized;
+    }
+
+    // =========================================================================
+    // 4. THREAT DETECTION ENGINE
+    // =========================================================================
+    function runDetectionEngine(events) {
+      const alerts = [];
+      let alertNum = 1;
+      const mkId = () => 'ALT-' + String(alertNum++).padStart(3, '0');
+      const sorted = [...events].sort((a, b) => a.epoch - b.epoch);
+
+      // 1. Brute-Force Detection (grouped by src_ip)
+      const failuresByIp = {};
+      for (const ev of sorted) {
+        if (ev.event_action === 'auth_failure' && ev.src_ip !== '-') {
+          (failuresByIp[ev.src_ip] ||= []).push(ev);
+        }
+      }
+      for (const [ip, failList] of Object.entries(failuresByIp)) {
+        if (failList.length >= 4) {
+          const lastFailEpoch = failList[failList.length - 1].epoch;
+          const firstFailEpoch = failList[0].epoch;
+          const postSuccess = sorted.filter(e =>
+            e.src_ip === ip && e.event_action === 'auth_success' &&
+            e.epoch >= firstFailEpoch && e.epoch <= lastFailEpoch + 15 * 60 * 1000
+          );
+          const isCompromised = postSuccess.length > 0;
+          const evidence = [...failList, ...postSuccess];
+          alerts.push({
+            id: mkId(),
+            category: 'Brute Force',
+            mitre: 'T1110 · Brute Force',
+            severity: isCompromised ? 'critical' : 'high',
+            title: isCompromised
+              ? `Brute-Force Followed by Successful Login from ${ip}`
+              : `Brute-Force Authentication Burst from ${ip}`,
+            description: isCompromised
+              ? `Detected ${failList.length} failed login attempts followed by ${postSuccess.length} successful authentication(s) across ${[...new Set(evidence.map(e => SOURCE_LABEL[e.source_type]))].join(', ')}.`
+              : `Detected ${failList.length} failed login attempts from ${ip} targeting ${[...new Set(failList.map(e => e.actor))].join(', ')}.`,
+            src_ip: ip,
+            actors: [...new Set(evidence.map(e => e.actor))],
+            sources: [...new Set(evidence.map(e => e.source_type))],
+            first_seen: evidence[0].timestamp,
+            last_seen: evidence[evidence.length - 1].timestamp,
+            evidence_ids: evidence.map(e => e.id),
+          });
+        }
+      }
+
+      // 2. Unusual Logins (No MFA, Off-Hours 00:00-05:00 UTC, or Multi-IP Actor)
+      const actorIps = {};
+      for (const ev of sorted) {
+        if (ev.event_action === 'auth_success') {
+          if (ev.actor && ev.actor !== 'system' && ev.actor !== 'anonymous') {
+            (actorIps[ev.actor] ||= []).push(ev);
+          }
+          const hour = new Date(ev.epoch).getUTCHours();
+          const noMfa = ev.source_type === 'cloud_service' && /"MFAUsed":\s*"No"/i.test(ev.raw);
+          if (noMfa) {
+            alerts.push({
+              id: mkId(),
+              category: 'Unusual Login',
+              mitre: 'T1078 · Valid Accounts',
+              severity: 'high',
+              title: `Cloud Console Login Without MFA (${ev.actor})`,
+              description: `AWS ConsoleLogin succeeded for '${ev.actor}' from ${ev.src_ip} with MFAUsed=No.`,
+              src_ip: ev.src_ip,
+              actors: [ev.actor],
+              sources: [ev.source_type],
+              first_seen: ev.timestamp,
+              last_seen: ev.timestamp,
+              evidence_ids: [ev.id],
+            });
+          } else if (hour >= 0 && hour < 5 && ev.src_ip !== '-' && !ev.src_ip.startsWith('10.')) {
+            alerts.push({
+              id: mkId(),
+              category: 'Unusual Login',
+              mitre: 'T1078 · Valid Accounts',
+              severity: 'medium',
+              title: `Off-Hours External Login for '${ev.actor}' (${ev.src_ip})`,
+              description: `Successful authentication at ${ev.timestamp.slice(11, 19)} UTC from external IP ${ev.src_ip} on ${ev.dst_host}.`,
+              src_ip: ev.src_ip,
+              actors: [ev.actor],
+              sources: [ev.source_type],
+              first_seen: ev.timestamp,
+              last_seen: ev.timestamp,
+              evidence_ids: [ev.id],
+            });
+          }
+        }
+      }
+      for (const [actor, evs] of Object.entries(actorIps)) {
+        const distinctExtIps = [...new Set(evs.map(e => e.src_ip).filter(ip => ip !== '-' && !ip.startsWith('10.')))];
+        if (distinctExtIps.length > 1) {
+          alerts.push({
+            id: mkId(),
+            category: 'Unusual Login',
+            mitre: 'T1078 · Impossible Travel / Multi-IP',
+            severity: 'high',
+            title: `Concurrent Multi-IP Access for Actor '${actor}'`,
+            description: `Actor '${actor}' authenticated from ${distinctExtIps.length} distinct external IPs (${distinctExtIps.join(', ')}) within the observed window.`,
+            src_ip: distinctExtIps[0],
+            actors: [actor],
+            sources: [...new Set(evs.map(e => e.source_type))],
+            first_seen: evs[0].timestamp,
+            last_seen: evs[evs.length - 1].timestamp,
+            evidence_ids: evs.map(e => e.id),
+          });
+        }
+      }
+
+      // 3. Privilege Changes & Persistence
+      const privEvents = sorted.filter(e => e.event_action === 'privilege_change' || e.event_action === 'account_created');
+      const privByActor = {};
+      for (const ev of privEvents) {
+        const key = `${ev.actor}|${ev.src_ip}`;
+        (privByActor[key] ||= []).push(ev);
+      }
+      for (const [key, evs] of Object.entries(privByActor)) {
+        const [actor, ip] = key.split('|');
+        const hasCritical = evs.some(e => e.severity === 'critical' || /Administrator|root|sudo|AdministratorAccess/i.test(e.message + ' ' + e.resource));
+        alerts.push({
+          id: mkId(),
+          category: 'Privilege Change',
+          mitre: 'T1098 · Account Manipulation',
+          severity: hasCritical ? 'critical' : 'high',
+          title: `Privilege Escalation / Persistence Activity (${actor})`,
+          description: `Detected ${evs.length} privilege or account modification event(s): ${evs.map(e => e.event_code).join(', ')}.`,
+          src_ip: ip,
+          actors: [actor],
+          sources: [...new Set(evs.map(e => e.source_type))],
+          first_seen: evs[0].timestamp,
+          last_seen: evs[evs.length - 1].timestamp,
+          evidence_ids: evs.map(e => e.id),
+        });
+      }
+
+      // 4. Suspicious Access Patterns
+      const webAttackByIp = {};
+      for (const ev of sorted) {
+        if (ev.source_type === 'web_server' && (ev.severity === 'high' || Number(ev.event_code) >= 400)) {
+          (webAttackByIp[ev.src_ip] ||= []).push(ev);
+        } else if (ev.event_action === 'process_exec' && ev.severity === 'high') {
+          alerts.push({
+            id: mkId(),
+            category: 'Suspicious Access',
+            mitre: 'T1059.001 · Encoded PowerShell',
+            severity: 'critical',
+            title: `Obfuscated PowerShell Execution on ${ev.dst_host}`,
+            description: `Suspicious encoded command executed by '${ev.actor}': ${ev.resource}`,
+            src_ip: ev.src_ip,
+            actors: [ev.actor],
+            sources: [ev.source_type],
+            first_seen: ev.timestamp,
+            last_seen: ev.timestamp,
+            evidence_ids: [ev.id],
+          });
+        } else if (ev.event_action === 'policy_change' && ev.severity === 'critical') {
+          alerts.push({
+            id: mkId(),
+            category: 'Suspicious Access',
+            mitre: 'T1562 · Impair Defenses / Exposure',
+            severity: 'critical',
+            title: `Public Cloud Resource Exposure (${ev.event_code})`,
+            description: `${ev.message} from ${ev.src_ip}`,
+            src_ip: ev.src_ip,
+            actors: [ev.actor],
+            sources: [ev.source_type],
+            first_seen: ev.timestamp,
+            last_seen: ev.timestamp,
+            evidence_ids: [ev.id],
+          });
+        }
+      }
+      for (const [ip, evs] of Object.entries(webAttackByIp)) {
+        const hasExploit = evs.some(e => e.severity === 'high');
+        if (hasExploit || evs.length >= 5) {
+          alerts.push({
+            id: mkId(),
+            category: 'Suspicious Access',
+            mitre: 'T1190 · Exploit Public-Facing App',
+            severity: hasExploit ? 'high' : 'medium',
+            title: `Web Exploitation / Directory Scanning from ${ip}`,
+            description: `Detected ${evs.length} suspicious HTTP requests (SQLi, path traversal, sensitive file probes, or 4xx bursts).`,
+            src_ip: ip,
+            actors: [...new Set(evs.map(e => e.actor))],
+            sources: ['web_server'],
+            first_seen: evs[0].timestamp,
+            last_seen: evs[evs.length - 1].timestamp,
+            evidence_ids: evs.map(e => e.id),
+          });
+        }
+      }
+
+      return alerts.sort((a, b) => SEV_RANK[b.severity] - SEV_RANK[a.severity]);
+    }
+
+    // =========================================================================
+    // 5. EVENT CORRELATION ENGINE (INCIDENT GROUPING)
+    // =========================================================================
+    function correlateIncidents(events, alerts) {
+      if (!alerts.length) return [];
+      const parent = alerts.map((_, i) => i);
+      const find = i => parent[i] === i ? i : (parent[i] = find(parent[i]));
+      const union = (a, b) => { const ra = find(a), rb = find(b); if (ra !== rb) parent[rb] = ra; };
+
+      for (let i = 0; i < alerts.length; i++) {
+        for (let j = i + 1; j < alerts.length; j++) {
+          const sameIp = alerts[i].src_ip !== '-' && alerts[i].src_ip === alerts[j].src_ip;
+          const sharedActor = alerts[i].actors.some(a => a !== 'anonymous' && a !== 'system' && a !== 'root' && alerts[j].actors.includes(a));
+          if (sameIp || sharedActor) union(i, j);
+        }
+      }
+
+      const groups = {};
+      alerts.forEach((al, idx) => {
+        const root = find(idx);
+        (groups[root] ||= []).push(al);
+      });
+
+      const eventMap = Object.fromEntries(events.map(e => [e.id, e]));
+      let incNum = 1;
+
+      return Object.values(groups).map(groupAlerts => {
+        const id = 'INC-' + String(incNum++).padStart(3, '0');
+        const evIds = new Set();
+        groupAlerts.forEach(a => a.evidence_ids.forEach(eid => evIds.add(eid)));
+        const timelineEvents = [...evIds].map(eid => eventMap[eid]).filter(Boolean).sort((a, b) => a.epoch - b.epoch);
+        const maxSev = groupAlerts.reduce((acc, a) => SEV_RANK[a.severity] > SEV_RANK[acc] ? a.severity : acc, 'low');
+        const sources = [...new Set(timelineEvents.map(e => e.source_type))];
+        const ips = [...new Set(groupAlerts.map(a => a.src_ip).filter(ip => ip !== '-'))];
+        const actors = [...new Set(groupAlerts.flatMap(a => a.actors).filter(a => a !== 'anonymous' && a !== 'system'))];
+        const riskScore = Math.min(100, 35 + groupAlerts.length * 12 + sources.length * 10 + (maxSev === 'critical' ? 20 : 10));
+
+        return {
+          id,
+          title: sources.length > 1
+            ? `Multi-Stage Cross-Platform Intrusion (${actors[0] || ips[0] || 'Unknown'})`
+            : `${groupAlerts[0].category} Incident (${ips[0] || actors[0]})`,
+          severity: maxSev,
+          risk_score: riskScore,
+          alerts: groupAlerts,
+          events: timelineEvents,
+          sources,
+          ips,
+          actors,
+          first_seen: timelineEvents[0]?.timestamp || groupAlerts[0].first_seen,
+          last_seen: timelineEvents[timelineEvents.length - 1]?.timestamp || groupAlerts[0].last_seen,
+        };
+      }).sort((a, b) => b.risk_score - a.risk_score);
+    }
+
+    // =========================================================================
+    // 6. PIPELINE & RENDERING
+    // =========================================================================
+    function ingestAndAnalyze(rawText, forcedType = 'auto', label = 'logs') {
+      const parsed = normalizeLogs(rawText, forcedType);
+      if (!parsed.length) {
+        showToast(`No valid log entries recognized in ${label}.`, 'rose');
+        return 0;
+      }
+      state.events = [...state.events, ...parsed].sort((a, b) => b.epoch - a.epoch);
+      state.alerts = runDetectionEngine(state.events);
+      state.incidents = correlateIncidents(state.events, state.alerts);
+      if (state.incidents.length && !state.selectedIncidentId) {
+        state.selectedIncidentId = state.incidents[0].id;
+      }
+      renderAll();
+      showToast(`Ingested ${parsed.length} events from ${label}. Detected ${state.alerts.length} alerts across ${state.incidents.length} incident(s).`, 'emerald');
+      return parsed.length;
+    }
+
+    function renderAll() {
+      document.getElementById('badge-events').textContent = state.events.length;
+      document.getElementById('badge-alerts').textContent = state.alerts.length;
+      document.getElementById('badge-incidents').textContent = state.incidents.length;
+
+      renderOverview();
+      renderEventsTable();
+      renderAlertsList();
+      renderIncidentsView();
+    }
+
+    function renderOverview() {
+      const critCount = state.alerts.filter(a => a.severity === 'critical').length;
+      const highCount = state.alerts.filter(a => a.severity === 'high').length;
+      const flaggedEntities = new Set([
+        ...state.alerts.map(a => a.src_ip).filter(ip => ip !== '-'),
+        ...state.alerts.flatMap(a => a.actors).filter(a => a !== 'anonymous' && a !== 'system')
+      ]);
+
+      document.getElementById('kpi-events').textContent = state.events.length;
+      const srcCounts = { linux_auth: 0, windows_event: 0, web_server: 0, cloud_service: 0 };
+      state.events.forEach(e => { if (srcCounts[e.source_type] !== undefined) srcCounts[e.source_type]++; });
+      document.getElementById('kpi-events-sub').textContent = `Linux ${srcCounts.linux_auth} · Win ${srcCounts.windows_event} · Web ${srcCounts.web_server} · Cloud ${srcCounts.cloud_service}`;
+
+      document.getElementById('kpi-alerts').textContent = state.alerts.length;
+      document.getElementById('kpi-alerts-sub').textContent = `${critCount} Critical · ${highCount} High`;
+
+      document.getElementById('kpi-incidents').textContent = state.incidents.length;
+      document.getElementById('kpi-entities').textContent = flaggedEntities.size;
+
+      renderCharts(srcCounts);
+      renderTopEntities();
+    }
+
+    function renderCharts(srcCounts) {
+      const buckets = {};
+      state.events.forEach(e => {
+        const key = e.timestamp.slice(11, 16);
+        if (!buckets[key]) buckets[key] = { total: 0, suspicious: 0 };
+        buckets[key].total++;
+        if (e.severity === 'high' || e.severity === 'critical' || e.event_action === 'auth_failure') {
+          buckets[key].suspicious++;
+        }
+      });
+      const labels = Object.keys(buckets).sort();
+      const totalSeries = labels.map(k => buckets[k].total);
+      const suspSeries = labels.map(k => buckets[k].suspicious);
+
+      if (state.charts.timeline) state.charts.timeline.destroy();
+      state.charts.timeline = new Chart(document.getElementById('chart-timeline'), {
+        type: 'bar',
+        data: {
+          labels: labels.length ? labels : ['No Data'],
+          datasets: [
+            { label: 'Total Events', data: totalSeries.length ? totalSeries : [0], backgroundColor: 'rgba(56, 189, 248, 0.35)', borderColor: '#38BDF8', borderWidth: 1, borderRadius: 4 },
+            { label: 'Suspicious / Failures', data: suspSeries.length ? suspSeries : [0], backgroundColor: 'rgba(244, 63, 94, 0.65)', borderColor: '#F43F5E', borderWidth: 1, borderRadius: 4 }
+          ]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { labels: { color: '#94A3B8', font: { size: 11 } } } },
+          scales: {
+            x: { ticks: { color: '#64748B', font: { size: 10 } }, grid: { color: 'rgba(51,65,85,0.3)' } },
+            y: { beginAtZero: true, ticks: { color: '#64748B', precision: 0 }, grid: { color: 'rgba(51,65,85,0.3)' } }
+          }
+        }
+      });
+
+      if (state.charts.sources) state.charts.sources.destroy();
+      state.charts.sources = new Chart(document.getElementById('chart-sources'), {
+        type: 'doughnut',
+        data: {
+          labels: ['Linux Auth', 'Windows Event', 'Web Server', 'Cloud Service'],
+          datasets: [{
+            data: [srcCounts.linux_auth, srcCounts.windows_event, srcCounts.web_server, srcCounts.cloud_service],
+            backgroundColor: ['#38BDF8', '#818CF8', '#34D399', '#FBBF24'],
+            borderColor: '#0F172A',
+            borderWidth: 2
+          }]
+        },
+        options: {
+          responsive: true,
+          maintainAspectRatio: false,
+          cutout: '64%',
+          plugins: { legend: { position: 'bottom', labels: { color: '#CBD5E1', padding: 14, font: { size: 11 } } } }
+        }
+      });
+
+      const catCounts = { 'Brute Force': 0, 'Unusual Login': 0, 'Privilege Change': 0, 'Suspicious Access': 0 };
+      state.alerts.forEach(a => { if (catCounts[a.category] !== undefined) catCounts[a.category]++; });
+
+      if (state.charts.categories) state.charts.categories.destroy();
+      state.charts.categories = new Chart(document.getElementById('chart-categories'), {
+        type: 'bar',
+        data: {
+          labels: Object.keys(catCounts),
+          datasets: [{
+            label: 'Alerts',
+            data: Object.values(catCounts),
+            backgroundColor: ['#F43F5E', '#F59E0B', '#A855F7', '#38BDF8'],
+            borderRadius: 6
+          }]
+        },
+        options: {
+          indexAxis: 'y',
+          responsive: true,
+          maintainAspectRatio: false,
+          plugins: { legend: { display: false } },
+          scales: {
+            x: { beginAtZero: true, ticks: { color: '#64748B', precision: 0 }, grid: { color: 'rgba(51,65,85,0.3)' } },
+            y: { ticks: { color: '#CBD5E1', font: { size: 11 } }, grid: { display: false } }
+          }
+        }
+      });
+    }
+
+    function renderTopEntities() {
+      const body = document.getElementById('top-entities-body');
+      const stats = {};
+      state.events.forEach(e => {
+        if (e.src_ip !== '-' && !e.src_ip.startsWith('10.')) {
+          const s = (stats[e.src_ip] ||= { count: 0, sources: new Set(), maxSev: 'info' });
+          s.count++;
+          s.sources.add(SOURCE_LABEL[e.source_type]);
+          if (SEV_RANK[e.severity] > SEV_RANK[s.maxSev]) s.maxSev = e.severity;
+        }
+      });
+      const rows = Object.entries(stats).sort((a, b) => SEV_RANK[b[1].maxSev] - SEV_RANK[a[1].maxSev] || b[1].count - a[1].count).slice(0, 6);
+
+      if (!rows.length) {
+        body.innerHTML = `<tr><td colspan="4" class="py-8 text-center text-slate-500">Load sample logs or upload your own log files to see threat entities.</td></tr>`;
+        return;
+      }
+
+      body.innerHTML = rows.map(([ip, info]) => `
+        <tr class="hover:bg-slate-800/50 cursor-pointer entity-pivot" data-ip="${escapeHtml(ip)}">
+          <td class="py-2.5 pr-3 mono text-sky-400 font-medium">${escapeHtml(ip)}</td>
+          <td class="py-2.5 px-2 text-slate-300">${[...info.sources].join(', ')}</td>
+          <td class="py-2.5 px-2 text-right mono text-slate-200">${info.count}</td>
+          <td class="py-2.5 pl-2 text-right"><span class="px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${SEV_BADGE[info.maxSev]}">${info.maxSev}</span></td>
+        </tr>
+      `).join('');
+    }
+
+    function renderEventsTable() {
+      const { search, source, action, severity } = state.filters;
+      const q = search.trim().toLowerCase();
+
+      const filtered = state.events.filter(e => {
+        if (source !== 'all' && e.source_type !== source) return false;
+        if (action !== 'all' && e.event_action !== action) return false;
+        if (severity !== 'all' && e.severity !== severity) return false;
+        if (q) {
+          const hay = `${e.id} ${e.actor} ${e.src_ip} ${e.dst_host} ${e.resource} ${e.event_code} ${e.message} ${e.raw}`.toLowerCase();
+          if (!hay.includes(q)) return false;
+        }
+        return true;
+      });
+
+      document.getElementById('events-count-label').textContent = `Showing ${filtered.length} of ${state.events.length} normalized events`;
+      const tbody = document.getElementById('events-table-body');
+
+      if (!filtered.length) {
+        tbody.innerHTML = `<tr><td colspan="7" class="py-12 text-center text-slate-500">No matching normalized events found.</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = filtered.slice(0, 250).map(e => `
+        <tr class="hover:bg-slate-800/60 cursor-pointer transition event-row" data-event-id="${e.id}">
+          <td class="py-2.5 px-3 mono text-[11px] text-slate-400 whitespace-nowrap">${e.timestamp.replace('T', ' ').slice(0, 19)}</td>
+          <td class="py-2.5 px-3 whitespace-nowrap"><span class="px-2 py-0.5 rounded text-[10px] font-medium ${SOURCE_BADGE[e.source_type]}">${SOURCE_LABEL[e.source_type]}</span></td>
+          <td class="py-2.5 px-3 whitespace-nowrap"><span class="px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${SEV_BADGE[e.severity]}">${e.severity}</span></td>
+          <td class="py-2.5 px-3 mono text-[11px] text-slate-200 whitespace-nowrap">${escapeHtml(e.event_action)} <span class="text-slate-500">(${escapeHtml(e.event_code)})</span></td>
+          <td class="py-2.5 px-3 mono text-slate-200">${escapeHtml(e.actor)}</td>
+          <td class="py-2.5 px-3 mono text-sky-400">${escapeHtml(e.src_ip)}</td>
+          <td class="py-2.5 px-3 text-slate-300 max-w-md truncate">${escapeHtml(e.message)}</td>
+        </tr>
+      `).join('');
+    }
+
+    function renderAlertsList() {
+      const { severity, category, status } = state.alertFilters;
+      const filtered = state.alerts.filter(a => {
+        const st = state.alertStatuses[a.id] || 'Open';
+        if (severity !== 'all' && a.severity !== severity) return false;
+        if (category !== 'all' && a.category !== category) return false;
+        if (status !== 'all' && st !== status) return false;
+        return true;
+      });
+
+      document.getElementById('alerts-count-label').textContent = `${filtered.length} ${filtered.length === 1 ? "alert" : "alerts"} shown`;
+      const container = document.getElementById('alerts-list');
+
+      if (!filtered.length) {
+        container.innerHTML = `<div class="bg-slate-900/80 border border-slate-800 rounded-xl p-12 text-center text-slate-500 text-sm">No alerts match the current filter criteria.</div>`;
+        return;
+      }
+
+      const eventMap = Object.fromEntries(state.events.map(e => [e.id, e]));
+
+      container.innerHTML = filtered.map(a => {
+        const curStatus = state.alertStatuses[a.id] || 'Open';
+        const sampleEvs = a.evidence_ids.slice(0, 3).map(id => eventMap[id]).filter(Boolean);
+        return `
+          <div class="bg-slate-900/80 border border-slate-800 rounded-xl p-4 space-y-3">
+            <div class="flex flex-col sm:flex-row sm:items-start justify-between gap-3">
+              <div class="space-y-1">
+                <div class="flex flex-wrap items-center gap-2">
+                  <span class="mono text-xs text-slate-400">${a.id}</span>
+                  <span class="px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${SEV_BADGE[a.severity]}">${a.severity}</span>
+                  <span class="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-800 text-slate-300 border border-slate-700">${escapeHtml(a.mitre)}</span>
+                  <span class="text-[11px] text-slate-400 mono">${a.evidence_ids.length} evidence event(s)</span>
+                </div>
+                <h3 class="text-sm font-semibold text-white">${escapeHtml(a.title)}</h3>
+                <p class="text-xs text-slate-300">${escapeHtml(a.description)}</p>
+              </div>
+              <div class="flex items-center gap-2 shrink-0">
+                <select class="alert-status-select px-2.5 py-1.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-slate-200" data-alert-id="${a.id}">
+                  <option value="Open" ${curStatus === 'Open' ? 'selected' : ''}>Open</option>
+                  <option value="Investigating" ${curStatus === 'Investigating' ? 'selected' : ''}>Investigating</option>
+                  <option value="Resolved" ${curStatus === 'Resolved' ? 'selected' : ''}>Resolved</option>
+                  <option value="False Positive" ${curStatus === 'False Positive' ? 'selected' : ''}>False Positive</option>
+                </select>
+                ${a.src_ip !== '-' ? `<button class="pivot-ip-btn px-2.5 py-1.5 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 border border-sky-500/30 text-xs font-medium transition" data-ip="${escapeHtml(a.src_ip)}">Investigate IP</button>` : ''}
+              </div>
+            </div>
+
+            <div class="bg-slate-950/80 border border-slate-800/80 rounded-lg p-3 space-y-1.5">
+              <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Evidence Preview</div>
+              ${sampleEvs.map(ev => `
+                <div class="flex items-center justify-between gap-2 text-[11px] py-1 border-b border-slate-900 last:border-0 cursor-pointer hover:text-sky-300 event-row" data-event-id="${ev.id}">
+                  <span class="mono text-slate-400 shrink-0">${ev.id} · ${ev.timestamp.slice(11, 19)}</span>
+                  <span class="text-slate-300 truncate flex-1">${escapeHtml(ev.message)}</span>
+                  <span class="text-sky-400 shrink-0">Inspect →</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function renderIncidentsView() {
+      const listEl = document.getElementById('incidents-list');
+      const detailEl = document.getElementById('incident-detail-panel');
+
+      if (!state.incidents.length) {
+        listEl.innerHTML = `<div class="text-xs text-slate-500 py-8 text-center">No correlated incidents yet.</div>`;
+        detailEl.innerHTML = `<div class="text-center py-16 text-slate-500 text-sm">Load sample logs or ingest log files to correlate multi-source timelines.</div>`;
+        return;
+      }
+
+      if (!state.incidents.some(i => i.id === state.selectedIncidentId)) {
+        state.selectedIncidentId = state.incidents[0].id;
+      }
+
+      listEl.innerHTML = state.incidents.map(inc => {
+        const active = inc.id === state.selectedIncidentId;
+        return `
+          <button class="incident-item w-full text-left p-3.5 rounded-xl border transition ${active ? 'bg-slate-800/90 border-sky-500/60' : 'bg-slate-950/60 border-slate-800 hover:border-slate-700'}" data-incident-id="${inc.id}">
+            <div class="flex items-center justify-between gap-2 mb-1">
+              <span class="mono text-xs text-sky-400 font-semibold">${inc.id}</span>
+              <span class="px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${SEV_BADGE[inc.severity]}">Risk ${inc.risk_score}/100</span>
+            </div>
+            <div class="text-xs font-semibold text-white leading-snug">${escapeHtml(inc.title)}</div>
+            <div class="flex flex-wrap gap-1 mt-2">
+              ${inc.sources.map(s => `<span class="px-1.5 py-0.5 rounded text-[10px] ${SOURCE_BADGE[s]}">${SOURCE_LABEL[s]}</span>`).join('')}
+            </div>
+            <div class="text-[11px] text-slate-400 mt-2 mono">${inc.alerts.length} alerts · ${inc.events.length} events</div>
+          </button>
+        `;
+      }).join('');
+
+      const inc = state.incidents.find(i => i.id === state.selectedIncidentId);
+      if (!inc) return;
+      const savedNote = state.incidentNotes[inc.id] || '';
+
+      detailEl.innerHTML = `
+        <div class="space-y-5">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-slate-800">
+            <div>
+              <div class="flex items-center gap-2 mb-1">
+                <span class="mono text-xs text-sky-400 font-semibold">${inc.id}</span>
+                <span class="px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${SEV_BADGE[inc.severity]}">${inc.severity}</span>
+                <span class="text-xs text-slate-400 mono">Risk Score: ${inc.risk_score}/100</span>
+              </div>
+              <h2 class="text-base font-bold text-white">${escapeHtml(inc.title)}</h2>
+              <p class="text-xs text-slate-400 mt-0.5">IPs: <span class="mono text-slate-200">${inc.ips.join(', ') || 'N/A'}</span> · Actors: <span class="mono text-slate-200">${inc.actors.join(', ') || 'N/A'}</span></p>
+            </div>
+          </div>
+
+          <div>
+            <h3 class="text-xs font-semibold uppercase tracking-wider text-slate-400 mb-3">Correlated Attack Timeline (${inc.events.length} Events)</h3>
+            <div class="relative pl-5 border-l-2 border-slate-800 space-y-4">
+              ${inc.events.map(ev => `
+                <div class="relative group cursor-pointer event-row" data-event-id="${ev.id}">
+                  <span class="absolute -left-[27px] top-1.5 w-3 h-3 rounded-full border-2 border-slate-950 ${ev.severity === 'critical' ? 'bg-rose-500' : ev.severity === 'high' ? 'bg-orange-400' : 'bg-sky-400'}"></span>
+                  <div class="bg-slate-950/70 border border-slate-800/90 group-hover:border-sky-500/50 rounded-lg p-3 transition">
+                    <div class="flex flex-wrap items-center justify-between gap-2 mb-1">
+                      <div class="flex items-center gap-2">
+                        <span class="mono text-[11px] text-slate-400">${ev.timestamp.replace('T', ' ').slice(0, 19)}</span>
+                        <span class="px-1.5 py-0.5 rounded text-[10px] ${SOURCE_BADGE[ev.source_type]}">${SOURCE_LABEL[ev.source_type]}</span>
+                        <span class="px-1.5 py-0.5 rounded text-[10px] font-semibold uppercase ${SEV_BADGE[ev.severity]}">${ev.severity}</span>
+                      </div>
+                      <span class="text-[11px] text-sky-400 mono">${ev.id}</span>
+                    </div>
+                    <div class="text-xs text-slate-200 font-medium">${escapeHtml(ev.message)}</div>
+                    <div class="text-[11px] text-slate-400 mono mt-1">Actor: ${escapeHtml(ev.actor)} · IP: ${escapeHtml(ev.src_ip)} · Target: ${escapeHtml(ev.dst_host)}</div>
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+
+          <div class="pt-3 border-t border-slate-800 space-y-2">
+            <label class="block text-xs font-semibold text-slate-300">Analyst Investigation Notes</label>
+            <textarea id="incident-note-input" rows="3" placeholder="Document findings, containment actions, or IOCs..." class="w-full p-2.5 rounded-lg bg-slate-950 border border-slate-700 text-xs text-slate-200 focus:outline-none focus:border-sky-500">${escapeHtml(savedNote)}</textarea>
+            <div class="flex justify-end">
+              <button id="btn-save-note" data-incident-id="${inc.id}" class="px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-slate-200 transition">Save Note</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    // =========================================================================
+    // 7. EVENT INVESTIGATION DRAWER & UTILS
+    // =========================================================================
+    function openEventDrawer(eventId) {
+      const ev = state.events.find(e => e.id === eventId);
+      if (!ev) return;
+
+      document.getElementById('drawer-event-id').textContent = ev.id;
+      const badge = document.getElementById('drawer-severity-badge');
+      badge.textContent = ev.severity;
+      badge.className = `px-2 py-0.5 rounded text-[10px] font-semibold uppercase ${SEV_BADGE[ev.severity]}`;
+
+      const fields = [
+        ['Timestamp (UTC)', ev.timestamp],
+        ['Source Type', SOURCE_LABEL[ev.source_type]],
+        ['Source Host / Service', ev.source_name],
+        ['Event Action', ev.event_action],
+        ['Event Code', ev.event_code],
+        ['Outcome', ev.outcome],
+        ['Actor / User', ev.actor],
+        ['Source IP', ev.src_ip],
+        ['Destination Host', ev.dst_host],
+        ['Resource / Target', ev.resource],
+      ];
+
+      document.getElementById('drawer-content').innerHTML = `
+        <div class="bg-slate-900 border border-slate-800 rounded-xl p-3.5">
+          <div class="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Normalized Summary</div>
+          <div class="text-sm text-white font-medium">${escapeHtml(ev.message)}</div>
+        </div>
+
+        <div class="flex flex-wrap gap-2">
+          ${ev.src_ip !== '-' ? `<button class="pivot-ip-btn px-3 py-1.5 rounded-lg bg-sky-500/15 hover:bg-sky-500/25 text-sky-300 border border-sky-500/30 text-xs font-medium" data-ip="${escapeHtml(ev.src_ip)}">Filter Events by IP: ${escapeHtml(ev.src_ip)}</button>` : ''}
+          ${ev.actor !== 'system' && ev.actor !== 'anonymous' ? `<button class="pivot-actor-btn px-3 py-1.5 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 text-indigo-300 border border-indigo-500/30 text-xs font-medium" data-actor="${escapeHtml(ev.actor)}">Filter by Actor: ${escapeHtml(ev.actor)}</button>` : ''}
+        </div>
+
+        <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden">
+          <div class="px-3.5 py-2 border-b border-slate-800 text-[10px] font-semibold uppercase tracking-wider text-slate-400">Normalized Schema Fields</div>
+          <div class="divide-y divide-slate-800/70">
+            ${fields.map(([k, v]) => `
+              <div class="px-3.5 py-2 flex items-center justify-between gap-4">
+                <span class="text-slate-400">${k}</span>
+                <span class="mono text-slate-200 text-right break-all">${escapeHtml(String(v))}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>
+
+        <div class="space-y-1.5">
+          <div class="flex items-center justify-between">
+            <span class="text-[10px] font-semibold uppercase tracking-wider text-slate-400">Raw Log Payload</span>
+            <button id="btn-copy-raw" class="text-[11px] text-sky-400 hover:underline">Copy Raw</button>
+          </div>
+          <pre id="drawer-raw-text" class="p-3 rounded-xl bg-slate-900 border border-slate-800 mono text-[11px] text-emerald-300 whitespace-pre-wrap break-all">${escapeHtml(ev.raw)}</pre>
+        </div>
+      `;
+
+      document.getElementById('event-drawer-backdrop').classList.remove('hidden');
+      document.getElementById('event-drawer').classList.remove('translate-x-full');
+    }
+
+    function closeEventDrawer() {
+      document.getElementById('event-drawer-backdrop').classList.add('hidden');
+      document.getElementById('event-drawer').classList.add('translate-x-full');
+    }
+
+    function switchTab(tabName) {
+      state.activeTab = tabName;
+      document.querySelectorAll('.nav-tab').forEach(btn => {
+        btn.classList.toggle('tab-active', btn.dataset.tab === tabName);
+      });
+      ['overview', 'events', 'alerts', 'incidents', 'ingest'].forEach(t => {
+        document.getElementById(`view-${t}`).classList.toggle('hidden', t !== tabName);
+      });
+    }
+
+    function showToast(msg, color = 'emerald') {
+      const toast = document.getElementById('toast');
+      const icon = document.getElementById('toast-icon');
+      document.getElementById('toast-msg').textContent = msg;
+      icon.className = `w-2.5 h-2.5 rounded-full shrink-0 ${color === 'rose' ? 'bg-rose-400' : 'bg-emerald-400'}`;
+      toast.classList.remove('hidden');
+      clearTimeout(window._toastTimer);
+      window._toastTimer = setTimeout(() => toast.classList.add('hidden'), 4500);
+    }
+
+    function escapeHtml(str) {
+      return String(str).replace(/[&<>"']/g, s => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[s]));
+    }
+
+    function loadFullScenario() {
+      state.events = [];
+      state.alerts = [];
+      state.incidents = [];
+      state.selectedIncidentId = null;
+      eventCounter = 1;
+      const combined = [
+        ...normalizeLogs(SAMPLES.linux, 'linux_auth'),
+        ...normalizeLogs(SAMPLES.windows, 'windows_event'),
+        ...normalizeLogs(SAMPLES.web, 'web_server'),
+        ...normalizeLogs(SAMPLES.cloud, 'cloud_service'),
+      ];
+      state.events = combined.sort((a, b) => b.epoch - a.epoch);
+      state.alerts = runDetectionEngine(state.events);
+      state.incidents = correlateIncidents(state.events, state.alerts);
+      if (state.incidents.length) state.selectedIncidentId = state.incidents[0].id;
+      renderAll();
+      showToast(`Loaded multi-source attack scenario: ${state.events.length} events, ${state.alerts.length} alerts, ${state.incidents.length} correlated incident(s).`, 'emerald');
+    }
+
+    // =========================================================================
+    // 8. EVENT LISTENERS
+    // =========================================================================
+    document.addEventListener('DOMContentLoaded', () => {
+      document.querySelectorAll('.nav-tab').forEach(btn => {
+        btn.addEventListener('click', () => switchTab(btn.dataset.tab));
+      });
+
+      document.getElementById('btn-load-sample').addEventListener('click', loadFullScenario);
+      document.getElementById('btn-clear-all').addEventListener('click', () => {
+        state.events = []; state.alerts = []; state.incidents = []; state.selectedIncidentId = null; eventCounter = 1;
+        renderAll();
+        showToast('Cleared all logs and detections.', 'emerald');
+      });
+      document.getElementById('btn-export-report').addEventListener('click', () => {
+        if (!state.events.length) { showToast('No events to export yet.', 'rose'); return; }
+        const report = {
+          generated_at: new Date().toISOString(),
+          summary: { total_events: state.events.length, total_alerts: state.alerts.length, total_incidents: state.incidents.length },
+          incidents: state.incidents,
+          alerts: state.alerts,
+          normalized_events: state.events,
+        };
+        const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `logsentinel-siem-report-${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+        URL.revokeObjectURL(url);
+        showToast('Exported full SIEM investigation report (JSON).', 'emerald');
+      });
+
+      document.getElementById('filter-search').addEventListener('input', e => { state.filters.search = e.target.value; renderEventsTable(); });
+      document.getElementById('filter-source').addEventListener('change', e => { state.filters.source = e.target.value; renderEventsTable(); });
+      document.getElementById('filter-action').addEventListener('change', e => { state.filters.action = e.target.value; renderEventsTable(); });
+      document.getElementById('filter-severity').addEventListener('change', e => { state.filters.severity = e.target.value; renderEventsTable(); });
+      document.getElementById('btn-reset-filters').addEventListener('click', () => {
+        state.filters = { search: '', source: 'all', action: 'all', severity: 'all' };
+        document.getElementById('filter-search').value = '';
+        document.getElementById('filter-source').value = 'all';
+        document.getElementById('filter-action').value = 'all';
+        document.getElementById('filter-severity').value = 'all';
+        renderEventsTable();
+      });
+
+      document.getElementById('alert-filter-sev').addEventListener('change', e => { state.alertFilters.severity = e.target.value; renderAlertsList(); });
+      document.getElementById('alert-filter-cat').addEventListener('change', e => { state.alertFilters.category = e.target.value; renderAlertsList(); });
+      document.getElementById('alert-filter-status').addEventListener('change', e => { state.alertFilters.status = e.target.value; renderAlertsList(); });
+
+      document.getElementById('btn-ingest-paste').addEventListener('click', () => {
+        const text = document.getElementById('paste-textarea').value;
+        const type = document.getElementById('paste-source-type').value;
+        if (ingestAndAnalyze(text, type, 'pasted logs') > 0) {
+          document.getElementById('paste-textarea').value = '';
+          switchTab('events');
+        }
+      });
+
+      document.querySelectorAll('.sample-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const key = btn.dataset.sample;
+          const map = { linux: 'linux_auth', windows: 'windows_event', web: 'web_server', cloud: 'cloud_service' };
+          ingestAndAnalyze(SAMPLES[key], map[key], `${key} sample`);
+        });
+      });
+
+      const dropzone = document.getElementById('dropzone');
+      const fileInput = document.getElementById('file-input');
+      dropzone.addEventListener('click', () => fileInput.click());
+      dropzone.addEventListener('dragover', e => { e.preventDefault(); dropzone.classList.add('border-sky-500'); });
+      dropzone.addEventListener('dragleave', () => dropzone.classList.remove('border-sky-500'));
+      dropzone.addEventListener('drop', e => {
+        e.preventDefault();
+        dropzone.classList.remove('border-sky-500');
+        handleFiles(e.dataTransfer.files);
+      });
+      fileInput.addEventListener('change', e => handleFiles(e.target.files));
+
+      function handleFiles(files) {
+        Array.from(files).forEach(file => {
+          const reader = new FileReader();
+          reader.onload = ev => ingestAndAnalyze(ev.target.result, 'auto', file.name);
+          reader.readAsText(file);
+        });
+      }
+
+      document.getElementById('btn-close-drawer').addEventListener('click', closeEventDrawer);
+      document.getElementById('event-drawer-backdrop').addEventListener('click', closeEventDrawer);
+
+      document.body.addEventListener('click', e => {
+        const evRow = e.target.closest('.event-row');
+        if (evRow) {
+          openEventDrawer(evRow.dataset.eventId);
+          return;
+        }
+        const incItem = e.target.closest('.incident-item');
+        if (incItem) {
+          state.selectedIncidentId = incItem.dataset.incidentId;
+          renderIncidentsView();
+          return;
+        }
+        const pivotIp = e.target.closest('.pivot-ip-btn, .entity-pivot');
+        if (pivotIp) {
+          const ip = pivotIp.dataset.ip;
+          state.filters.search = ip;
+          document.getElementById('filter-search').value = ip;
+          closeEventDrawer();
+          switchTab('events');
+          renderEventsTable();
+          return;
+        }
+        const pivotActor = e.target.closest('.pivot-actor-btn');
+        if (pivotActor) {
+          const actor = pivotActor.dataset.actor;
+          state.filters.search = actor;
+          document.getElementById('filter-search').value = actor;
+          closeEventDrawer();
+          switchTab('events');
+          renderEventsTable();
+          return;
+        }
+        if (e.target.id === 'btn-copy-raw') {
+          const txt = document.getElementById('drawer-raw-text').textContent;
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(txt).catch(() => {});
+          } else {
+            const ta = document.createElement('textarea');
+            ta.value = txt; document.body.appendChild(ta); ta.select();
+            try { document.execCommand('copy'); } catch {}
+            document.body.removeChild(ta);
+          }
+          showToast('Copied raw log payload to clipboard.', 'emerald');
+        }
+        if (e.target.id === 'btn-save-note') {
+          const id = e.target.dataset.incidentId;
+          state.incidentNotes[id] = document.getElementById('incident-note-input').value;
+          showToast(`Saved investigation note for ${id}.`, 'emerald');
+        }
+      });
+
+      document.body.addEventListener('change', e => {
+        if (e.target.classList.contains('alert-status-select')) {
+          state.alertStatuses[e.target.dataset.alertId] = e.target.value;
+          showToast(`Updated ${e.target.dataset.alertId} status to ${e.target.value}.`, 'emerald');
+        }
+      });
+
+      loadFullScenario();
+    });
+  </script>
+</body>
+</html>

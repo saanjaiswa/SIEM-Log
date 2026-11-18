@@ -1,0 +1,9 @@
+[
+  { "TimeCreated": "2026-11-18T02:18:10Z", "Computer": "WIN-DC01.corp.local", "EventID": 4625, "TargetUserName": "administrator", "IpAddress": "185.220.101.45", "LogonType": 3 },
+  { "TimeCreated": "2026-11-18T02:18:15Z", "Computer": "WIN-DC01.corp.local", "EventID": 4625, "TargetUserName": "administrator", "IpAddress": "185.220.101.45", "LogonType": 3 },
+  { "TimeCreated": "2026-11-18T02:18:21Z", "Computer": "WIN-DC01.corp.local", "EventID": 4625, "TargetUserName": "svc_sql", "IpAddress": "185.220.101.45", "LogonType": 3 },
+  { "TimeCreated": "2026-11-18T02:18:33Z", "Computer": "WIN-DC01.corp.local", "EventID": 4625, "TargetUserName": "deploy", "IpAddress": "185.220.101.45", "LogonType": 3 },
+  { "TimeCreated": "2026-11-18T02:19:02Z", "Computer": "WIN-DC01.corp.local", "EventID": 4624, "TargetUserName": "deploy", "IpAddress": "185.220.101.45", "LogonType": 10 },
+  { "TimeCreated": "2026-11-18T02:20:04Z", "Computer": "WIN-DC01.corp.local", "EventID": 4720, "TargetUserName": "backup_admin$", "SubjectUserName": "deploy", "IpAddress": "185.220.101.45" },
+  { "TimeCreated": "2026-11-18T02:20:19Z", "Computer": "WIN-DC01.corp.local", "EventID": 4732, "TargetUserName": "backup_admin$", "GroupName": "Administrators", "SubjectUserName": "deploy", "IpAddress": "185.220.101.45" }
+]
